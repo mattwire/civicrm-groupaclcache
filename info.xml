@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<extension key="groupaclcache" type="module">
+  <file>groupaclcache</file>
+  <name>Group ACL Cache improvements</name>
+  <description>Extension to improve the SmartGroup and ACL caching in CiviCRM to reduce deadlocks and performance issues</description>
+  <license>AGPL-3.0</license>
+  <maintainer>
+    <author>Matthew Wire (MJW Consulting)</author>
+    <email>mjw@mjwconsult.co.uk</email>
+  </maintainer>
+  <urls>
+    <url desc="Main Extension Page">https://github.com/mattwire/civicrm-groupaclcache</url>
+    <url desc="Support">https://www.mjwconsult.co.uk</url>
+    <url desc="Licensing">http://www.gnu.org/licenses/agpl-3.0.html</url>
+  </urls>
+  <releaseDate>2019-02-26</releaseDate>
+  <version>0.1</version>
+  <develStage>beta</develStage>
+  <compatibility>
+    <ver>5.10.4</ver>
+  </compatibility>
+  <civix>
+    <namespace>CRM/Groupaclcache</namespace>
+  </civix>
+</extension>
