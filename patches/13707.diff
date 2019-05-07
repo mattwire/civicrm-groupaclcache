@@ -1,0 +1,238 @@
+diff --git a/CRM/Contact/BAO/Contact/Permission.php b/CRM/Contact/BAO/Contact/Permission.php
+index 4469a37c39f..133314c39de 100644
+--- a/CRM/Contact/BAO/Contact/Permission.php
++++ b/CRM/Contact/BAO/Contact/Permission.php
+@@ -236,20 +236,47 @@ public static function cache($userID, $type = CRM_Core_Permission::VIEW, $force
+       }
+     }
+ 
++    // grab a lock so other processes don't compete and do the same query
++    $lock = Civi::lockManager()->acquire("data.core.aclcontact.{$userID}");
++    if (!$lock->isAcquired()) {
++      // this can cause inconsistent results since we don't know if the other process
++      // will fill up the cache before our calling routine needs it.
++      // The default 3 second timeout should be enough for the other process to finish.
++      // However this routine does not return the status either, so basically
++      // its a "lets return and hope for the best"
++      return;
++    }
++
+     $tables = [];
+     $whereTables = [];
+ 
+     $permission = CRM_ACL_API::whereClause($type, $tables, $whereTables, $userID, FALSE, FALSE, TRUE);
+ 
+     $from = CRM_Contact_BAO_Query::fromClause($whereTables);
+-    CRM_Core_DAO::executeQuery("
+-INSERT INTO civicrm_acl_contact_cache ( user_id, contact_id, operation )
+-SELECT DISTINCT $userID as user_id, contact_a.id as contact_id, '{$operation}' as operation
+-         $from
+-         LEFT JOIN civicrm_acl_contact_cache ac ON ac.user_id = $userID AND ac.contact_id = contact_a.id AND ac.operation = '{$operation}'
++
++    /* Ends up something like this:
++    CREATE TEMPORARY TABLE civicrm_temp_acl_contact_cache1310 (SELECT DISTINCT 2960 as user_id, contact_a.id as contact_id, 'View' as operation
++    FROM civicrm_contact contact_a  LEFT JOIN civicrm_group_contact_cache `civicrm_group_contact_cache-ACL` ON contact_a.id = `civicrm_group_contact_cache-ACL`.contact_id
++    LEFT JOIN civicrm_acl_contact_cache ac ON ac.user_id = 2960 AND ac.contact_id = contact_a.id AND ac.operation = 'View'
++    WHERE     ( `civicrm_group_contact_cache-ACL`.group_id IN (14, 25, 46, 47, 48, 49, 50, 51) )  AND (contact_a.is_deleted = 0)
++    AND ac.user_id IS NULL
++    */
++    /*$sql = "SELECT DISTINCT $userID as user_id, contact_a.id as contact_id, '{$operation}' as operation
++    $from
++    LEFT JOIN civicrm_acl_contact_cache ac ON ac.user_id = $userID AND ac.contact_id = contact_a.id AND ac.operation = '{$operation}'
++    WHERE    $permission
++    AND ac.user_id IS NULL
++    ";*/
++
++    $sql = "SELECT DISTINCT $userID as user_id, contact_a.id as contact_id, '{$operation}' as operation
++     $from
+ WHERE    $permission
+-AND ac.user_id IS NULL
+-");
++";
++    $tempTable = 'civicrm_temp_acl_contact_cache' . rand(0, 2000);
++    $insertSql = "CREATE TEMPORARY TABLE $tempTable ($sql);";
++    CRM_Core_DAO::executeQuery($insertSql);
++    CRM_Core_DAO::executeQuery("INSERT IGNORE INTO civicrm_acl_contact_cache (user_id, contact_id, operation) SELECT user_id, contact_id, operation FROM $tempTable");
++    CRM_Core_DAO::executeQuery(" DROP TEMPORARY TABLE $tempTable");
+ 
+     // Add in a row for the logged in contact. Do not try to combine with the above query or an ugly OR will appear in
+     // the permission clause.
+@@ -257,10 +284,11 @@ public static function cache($userID, $type = CRM_Core_Permission::VIEW, $force
+       ($type == CRM_Core_Permission::VIEW && CRM_Core_Permission::check('view my contact'))) {
+       if (!CRM_Core_DAO::singleValueQuery("
+         SELECT count(*) FROM civicrm_acl_contact_cache WHERE user_id = %1 AND contact_id = %1 AND operation = '{$operation}' LIMIT 1", $queryParams)) {
+-        CRM_Core_DAO::executeQuery("INSERT INTO civicrm_acl_contact_cache ( user_id, contact_id, operation ) VALUES(%1, %1, '{$operation}')", $queryParams);
++        CRM_Core_DAO::executeQuery("INSERT IGNORE INTO civicrm_acl_contact_cache ( user_id, contact_id, operation ) VALUES(%1, %1, '{$operation}')", $queryParams);
+       }
+     }
+     Civi::$statics[__CLASS__]['processed'][$type][$userID] = 1;
++    $lock->release();
+   }
+ 
+   /**
+diff --git a/CRM/Contact/BAO/GroupContact.php b/CRM/Contact/BAO/GroupContact.php
+index 9bb1dc439a5..538a39dc4c2 100644
+--- a/CRM/Contact/BAO/GroupContact.php
++++ b/CRM/Contact/BAO/GroupContact.php
+@@ -148,7 +148,16 @@ public static function addContactsToGroup(
+     list($numContactsAdded, $numContactsNotAdded)
+       = self::bulkAddContactsToGroup($contactIds, $groupId, $method, $status, $tracking);
+ 
+-    CRM_Contact_BAO_Contact_Utils::clearContactCaches();
++    // Update group contact cache
++    $group = new CRM_Contact_BAO_Group();
++    $group->id = $groupId;
++    $group->find(TRUE);
++    CRM_Contact_BAO_GroupContactCache::load($group, TRUE);
++
++    // Update contact ACL cache
++    foreach ($contactIds as $contactId) {
++      CRM_ACL_BAO_Cache::updateEntry($contactId);
++    }
+ 
+     CRM_Utils_Hook::post('create', 'GroupContact', $groupId, $contactIds);
+ 
+@@ -242,7 +251,16 @@ public static function removeContactsFromGroup(
+       }
+     }
+ 
+-    CRM_Contact_BAO_Contact_Utils::clearContactCaches();
++    // Update group contact cache
++    $group = new CRM_Contact_BAO_Group();
++    $group->id = $groupId;
++    $group->find(TRUE);
++    CRM_Contact_BAO_GroupContactCache::load($group, TRUE);
++
++    // Update contact ACL cache
++    foreach ($contactIds as $contactId) {
++      CRM_ACL_BAO_Cache::updateEntry($contactId);
++    }
+ 
+     CRM_Utils_Hook::post($op, 'GroupContact', $groupId, $contactIds);
+ 
+diff --git a/CRM/Contact/BAO/GroupContactCache.php b/CRM/Contact/BAO/GroupContactCache.php
+index e61291cd860..3d519441d02 100644
+--- a/CRM/Contact/BAO/GroupContactCache.php
++++ b/CRM/Contact/BAO/GroupContactCache.php
+@@ -346,6 +346,7 @@ protected static function flushCaches() {
+       // Someone else is kindly doing the refresh for us right now.
+       return;
+     }
++
+     $params = [1 => [self::getCacheInvalidDateTime(), 'String']];
+     // @todo this is consistent with previous behaviour but as the first query could take several seconds the second
+     // could become inaccurate. It seems to make more sense to fetch them first & delete from an array (which would
+@@ -480,25 +481,13 @@ public static function load(&$group, $force = FALSE) {
+       return;
+     }
+ 
+-    // grab a lock so other processes don't compete and do the same query
+-    $lock = Civi::lockManager()->acquire("data.core.group.{$groupID}");
+-    if (!$lock->isAcquired()) {
+-      // this can cause inconsistent results since we don't know if the other process
+-      // will fill up the cache before our calling routine needs it.
+-      // however this routine does not return the status either, so basically
+-      // its a "lets return and hope for the best"
+-      return;
+-    }
+-
+     self::$_alreadyLoaded[$groupID] = 1;
+ 
+-    // we now have the lock, but some other process could have actually done the work
+-    // before we got here, so before we do any work, lets ensure that work needs to be
+-    // done
++    // FIXME: some other process could have actually done the work before we got here,
++    // Ensure that work needs to be done before continuing
+     // we allow hidden groups here since we dont know if the caller wants to evaluate an
+     // hidden group
+     if (!$force && !self::shouldGroupBeRefreshed($groupID, TRUE)) {
+-      $lock->release();
+       return;
+     }
+ 
+@@ -584,29 +573,14 @@ public static function load(&$group, $force = FALSE) {
+ WHERE  civicrm_group_contact.status = 'Added'
+   AND  civicrm_group_contact.group_id = $groupID ";
+ 
+-    self::clearGroupContactCache($groupID);
+-
+-    $processed = FALSE;
+     $tempTable = 'civicrm_temp_group_contact_cache' . rand(0, 2000);
+-    foreach ([$sql, $sqlB] as $selectSql) {
+-      if (!$selectSql) {
+-        continue;
+-      }
+-      $insertSql = "CREATE TEMPORARY TABLE $tempTable ($selectSql);";
+-      $processed = TRUE;
+-      CRM_Core_DAO::executeQuery($insertSql);
+-      CRM_Core_DAO::executeQuery(
+-        "INSERT IGNORE INTO civicrm_group_contact_cache (contact_id, group_id)
+-        SELECT DISTINCT $idName, group_id FROM $tempTable
+-      ");
+-      CRM_Core_DAO::executeQuery(" DROP TEMPORARY TABLE $tempTable");
+-    }
+-
+-    self::updateCacheTime([$groupID], $processed);
++    $insertSql = "CREATE TEMPORARY TABLE $tempTable ($sql);";
++    CRM_Core_DAO::executeQuery($insertSql);
++    CRM_Core_DAO::executeQuery("INSERT IGNORE INTO $tempTable ($idName, group_id) $sqlB");
+ 
+     if ($group->children) {
+ 
+-      //Store a list of contacts who are removed from the parent group
++      // Store a list of contacts who are removed from the parent group
+       $sql = "
+ SELECT contact_id
+ FROM civicrm_group_contact
+@@ -621,7 +595,7 @@ public static function load(&$group, $force = FALSE) {
+       $childrenIDs = explode(',', $group->children);
+       foreach ($childrenIDs as $childID) {
+         $contactIDs = CRM_Contact_BAO_Group::getMember($childID, FALSE);
+-        //Unset each contact that is removed from the parent group
++        // Unset each contact that is removed from the parent group
+         foreach ($removed_contacts as $removed_contact) {
+           unset($contactIDs[$removed_contact]);
+         }
+@@ -629,11 +603,40 @@ public static function load(&$group, $force = FALSE) {
+         foreach ($contactIDs as $contactID => $dontCare) {
+           $values[] = "({$groupID},{$contactID})";
+         }
+-
+-        self::store([$groupID], $values);
++        $str = implode(',', $values);
++        CRM_Core_DAO::executeQuery("INSERT IGNORE INTO $tempTable (group_id, contact_id) VALUES $str");
+       }
+     }
+ 
++    // grab a lock so other processes don't compete and do the same query
++    $lock = Civi::lockManager()->acquire("data.core.group.{$groupID}");
++    if (!$lock->isAcquired()) {
++      // this can cause inconsistent results since we don't know if the other process
++      // will fill up the cache before our calling routine needs it.
++      // however this routine does not return the status either, so basically
++      // its a "lets return and hope for the best"
++      return;
++    }
++
++    // Don't call clearGroupContactCache as we don't want to clear the cache dates
++    // The will get updated by updateCacheTime() below and not clearing the dates reduces
++    // the chance that loadAll() will try and rebuild at the same time.
++    $clearCacheQuery = "
++    DELETE  g
++      FROM  civicrm_group_contact_cache g
++      WHERE  g.group_id = %1 ";
++    $params = [
++      1 => [$groupID, 'Integer'],
++    ];
++    CRM_Core_DAO::executeQuery($clearCacheQuery, $params);
++
++    CRM_Core_DAO::executeQuery(
++      "INSERT IGNORE INTO civicrm_group_contact_cache (contact_id, group_id)
++        SELECT DISTINCT $idName, group_id FROM $tempTable
++      ");
++    CRM_Core_DAO::executeQuery(" DROP TEMPORARY TABLE $tempTable");
++    self::updateCacheTime([$groupID], TRUE);
++
+     $lock->release();
+   }
+ 
