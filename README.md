@@ -7,7 +7,7 @@ The extension is licensed under [AGPL-3.0](LICENSE.txt).
 ## Requirements
 
 * PHP v7.0+
-* CiviCRM 5.10.4
+* CiviCRM 5.13
 
 **As this extension overrides a number of core files it MUST be evaluated each time a CiviCRM upgrade is performed!**
 
@@ -30,5 +30,4 @@ Install and enable.  To disable the customisations disable this extension.
 For some background see: https://issues.civicrm.org/jira/browse/CRM-18120
 
 ### Related PRs:
-  * dev/core#748 Clean up transaction handling for CRM_Case_Form_Activity https://github.com/civicrm/civicrm-core/pull/13672
   * dev/core#748 Refactor of groupcontact and ACL cache https://github.com/civicrm/civicrm-core/pull/13707 
