@@ -7,7 +7,7 @@ The extension is licensed under [AGPL-3.0](LICENSE.txt).
 ## Requirements
 
 * PHP v7.0+
-* CiviCRM 5.13
+* CiviCRM 5.13.4
 
 **As this extension overrides a number of core files it MUST be evaluated each time a CiviCRM upgrade is performed!**
 
@@ -31,3 +31,7 @@ For some background see: https://issues.civicrm.org/jira/browse/CRM-18120
 
 ### Related PRs:
   * dev/core#748 Refactor of groupcontact and ACL cache https://github.com/civicrm/civicrm-core/pull/13707 and https://github.com/mattwire/civicrm-core/tree/refactor_groupaclcache
+  
+## Upgrading
+
+Update all core files and re-apply master...mattwire:refactor_groupaclcache.diff
