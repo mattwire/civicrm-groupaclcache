@@ -569,7 +569,7 @@ WHERE  id IN ( $groupIDs )
 
     $groupContactsTempTable = CRM_Utils_SQL_TempTable::build()->setCategory('gccache')->setMemory();
     $tempTable = $groupContactsTempTable->getName();
-    $groupContactsTempTable->createWithColumns('contact_id int, group_id int, UNIQUE UI_contact_group (contact_id,group_id)');
+    $groupContactsTempTable->createWithColumns('group_id int, contact_id int, UNIQUE UI_contact_group (group_id,contact_id)');
 
     $contactQueries[] = $sql;
     // lets also store the records that are explicitly added to the group
@@ -587,7 +587,7 @@ WHERE  civicrm_group_contact.status = 'Added'
         continue;
       }
       if (CRM_Core_DAO::singleValueQuery("SELECT COUNT(*) {$contactQuery['from']}") > 0) {
-        CRM_Core_DAO::executeQuery("INSERT IGNORE INTO $tempTable (contact_id, group_id) {$contactQuery['select']} {$contactQuery['from']}");
+        CRM_Core_DAO::executeQuery("INSERT IGNORE INTO $tempTable (group_id, contact_id) {$contactQuery['select']} {$contactQuery['from']}");
       }
     }
 
@@ -649,8 +649,8 @@ AND  civicrm_group_contact.group_id = $groupID ";
     CRM_Core_DAO::executeQuery($clearCacheQuery, $params);
 
     CRM_Core_DAO::executeQuery(
-      "INSERT IGNORE INTO civicrm_group_contact_cache (contact_id, group_id)
-        SELECT DISTINCT contact_id, group_id FROM $tempTable
+      "INSERT IGNORE INTO civicrm_group_contact_cache (group_id, contact_id)
+        SELECT DISTINCT group_id, contact_id FROM $tempTable
       ");
     $groupContactsTempTable->drop();
     self::updateCacheTime([$groupID], TRUE);
