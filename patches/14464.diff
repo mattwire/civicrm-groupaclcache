@@ -1,0 +1,38 @@
+diff --git a/templates/CRM/Contact/Form/Search/Intro.tpl b/templates/CRM/Contact/Form/Search/Intro.tpl
+index 2e668c49415..63ae2872274 100644
+--- a/templates/CRM/Contact/Form/Search/Intro.tpl
++++ b/templates/CRM/Contact/Form/Search/Intro.tpl
+@@ -29,11 +29,11 @@
+     {* Provide link to modify smart group search criteria if we are viewing a smart group (ssID = saved search ID) *}
+     {if !empty($ssID)}
+         {if $ssMappingID}
+-            {capture assign=editSmartGroupURL}{crmURL p="civicrm/contact/search/builder" q="reset=1&force=1&ssID=`$ssID`"}{/capture}
++            {capture assign=editSmartGroupURL}{crmURL p="civicrm/contact/search/builder" q="reset=1&ssID=`$ssID`"}{/capture}
+         {elseif $savedSearch.search_custom_id}
+-            {capture assign=editSmartGroupURL}{crmURL p="civicrm/contact/search/custom" q="reset=1&force=1&ssID=`$ssID`"}{/capture}
++            {capture assign=editSmartGroupURL}{crmURL p="civicrm/contact/search/custom" q="reset=1&ssID=`$ssID`"}{/capture}
+         {else}
+-            {capture assign=editSmartGroupURL}{crmURL p="civicrm/contact/search/advanced" q="reset=1&force=1&ssID=`$ssID`"}{/capture}
++            {capture assign=editSmartGroupURL}{crmURL p="civicrm/contact/search/advanced" q="reset=1&ssID=`$ssID`"}{/capture}
+         {/if}
+         <div class="crm-submit-buttons">
+             <a href="{$editSmartGroupURL}" class="button no-popup"><span><i class="crm-i fa-pencil"></i> {ts 1=$group.title}Edit Smart Group Search Criteria for %1{/ts}</span></a>
+diff --git a/templates/CRM/Group/Form/Edit.tpl b/templates/CRM/Group/Form/Edit.tpl
+index dd516783fb8..6fbab00645c 100644
+--- a/templates/CRM/Group/Form/Edit.tpl
++++ b/templates/CRM/Group/Form/Edit.tpl
+@@ -102,11 +102,11 @@
+       {if $group.saved_search_id}
+         <br />
+         {if $group.mapping_id}
+-          <a class="no-popup" href="{crmURL p="civicrm/contact/search/builder" q="reset=1&force=1&ssID=`$group.saved_search_id`"}">&raquo; {ts}Edit Smart Group Criteria{/ts}</a>
++          <a class="no-popup" href="{crmURL p="civicrm/contact/search/builder" q="reset=1&ssID=`$group.saved_search_id`"}">&raquo; {ts}Edit Smart Group Criteria{/ts}</a>
+         {elseif $group.search_custom_id}
+-          <a class="no-popup" href="{crmURL p="civicrm/contact/search/custom" q="reset=1&force=1&ssID=`$group.saved_search_id`"}">&raquo; {ts}Edit Smart Group Criteria{/ts}</a>
++          <a class="no-popup" href="{crmURL p="civicrm/contact/search/custom" q="reset=1&ssID=`$group.saved_search_id`"}">&raquo; {ts}Edit Smart Group Criteria{/ts}</a>
+         {else}
+-          <a class="no-popup" href="{crmURL p="civicrm/contact/search/advanced" q="reset=1&force=1&ssID=`$group.saved_search_id`"}">&raquo; {ts}Edit Smart Group Criteria{/ts}</a>
++          <a class="no-popup" href="{crmURL p="civicrm/contact/search/advanced" q="reset=1&ssID=`$group.saved_search_id`"}">&raquo; {ts}Edit Smart Group Criteria{/ts}</a>
+         {/if}
+ 
+       {/if}

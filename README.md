@@ -30,8 +30,14 @@ Install and enable.  To disable the customisations disable this extension.
 For some background see: https://issues.civicrm.org/jira/browse/CRM-18120
 
 ### Related PRs:
-  * dev/core#748 Refactor of groupcontact and ACL cache https://github.com/civicrm/civicrm-core/pull/13707 and https://github.com/mattwire/civicrm-core/tree/refactor_groupaclcache
-  
+  * dev/core#748 Refactor of groupcontact and ACL cache:
+    * https://github.com/civicrm/civicrm-core/pull/13707
+    * https://github.com/civicrm/civicrm-core/pull/13714
+    * https://github.com/mattwire/civicrm-core/tree/refactor_groupaclcache
+  * https://github.com/civicrm/civicrm-core/pull/14464 - Don't run search when editing smartgroup criteria
+
+
 ## Upgrading
 
 Update all core files and re-apply master...mattwire:refactor_groupaclcache.diff
+
